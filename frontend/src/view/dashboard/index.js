@@ -1,11 +1,13 @@
 import axios from 'axios'
 import React,{useState,useEffect} from 'react'
 import { useHistory } from "react-router-dom";
+import {CONTRACTADDRESS,CONTRACTABI} from '../../env'
+const Web3 = require('web3')
 
 const URL = 'http://localhost:5000'
 
 const Dashboard = (props) => {
-
+    const web3 = new Web3("http://localhost:8545")
     let browserHistory = useHistory()
     const [address,setAddress] = useState(props.location.state.address)
     const [privateKey,setPrivateKey] = useState(props.location.state.privateKey)
@@ -15,8 +17,47 @@ const Dashboard = (props) => {
     const [history,setHistory] = useState([])
     const [amount,setAmount] = useState(0)
     const [reciever,setReciever] = useState('')
-    const [reward,setReward] = useState(0)
+    const [reward,setReward] = useState(2)
     const [send,setSend] = useState('Send')
+    const [searchAddress,setSearchAddress] = useState('')
+    const [searchHistory,setSearchHistory] = useState([])
+    const [isSearch,setIsSearch] = useState(false)
+    const [investAmount,setInvestAmount] = useState(0)
+    const [contractBalance,setContractBalance] = useState(1)
+    const [progress,setProgress] = useState(1)
+    const [isInvestor,setIsinVestor] = useState(false)
+    const [isStartUp,setIsStartUp] = useState(false)
+    const contract = new web3.eth.Contract(CONTRACTABI,CONTRACTADDRESS)
+
+    const getMoney = ()=>{
+        web3.eth.getAccounts().then(result => {
+            let account = result[0]
+            console.log(account)
+            contract.methods.getFund().send({from:account},async function(err,result){
+                if(err) console.log(err)
+                console.log('get Money')
+                console.log(privateKey)
+                await axios.post(`${URL}/sendTransaction`,{
+                    addressFrom:CONTRACTADDRESS,
+                    addressTo:address,
+                    amount:contractBalance,
+                    privateKey:privateKey
+                }).then(result => {
+                    console.log('11111')
+                    console.log(result)
+                })
+                await axios.post(`${URL}/mineBlock`,{miner : address})
+                .then(response => {
+                    console.log(response)
+                    fetchHistory()
+                })
+                fetchBalance()
+                fetchContractBalance()
+                alert('Get money success')
+            })
+           
+        })      
+    }
 
     const sendTransaction = () => {
         const check = transactionPool.filter(tx => tx.addressFrom === address)
@@ -38,19 +79,54 @@ const Dashboard = (props) => {
         }
 
         setSend('Sending ...')
+        console.log(typeof(amount))
+        // web3.eth.sendTransaction({to:reciever,from:address,value:web3.utils.toWei(amount,"ether")}).then(result=>{
+        //     fetchBalance()
+        //     console.log(result)
+        // })
 
+        
         axios.post(`${URL}/sendTransaction`,{
             addressFrom:address,
             addressTo:reciever,
             amount,
-            reward
+            privateKey:privateKey
         }).then(response =>{
+            console.log(response)
             fetchTransactionPool()
         })
 
 
     }
     
+    const invest = ()=>{
+        console.log('Investing ... ')
+        console.log(address)
+        web3.eth.sendTransaction({
+                from:address,
+                to:CONTRACTADDRESS,
+                data: web3.eth.abi.encodeFunctionSignature('fund()'),
+                value:web3.utils.toWei(investAmount, "ether")
+            })
+            .then((err,result) => {
+            if(err) console.log(err)
+            console.log("result: " + result)
+            fetchBalance()
+            fetchContractBalance()
+            setInvestAmount(0)
+        })
+    }
+
+    const update = () => {
+        console.log('Update progress ...')
+
+        contract.methods.set(parseInt(progress)).send({from:address},function(err,result){
+            if(err) alert(err)
+            else console.log('result: '+ result)
+        })
+        fetchBalance()
+    }
+
     const mineBlock = () => {
         if(transactionPool.length === 0){
             alert('No transaction to mine')
@@ -83,30 +159,73 @@ const Dashboard = (props) => {
     }
 
     const fetchBalance = () => {
-        axios.get(`${URL}/balance/${address}`)
-        .then(response =>{
-            setBalance(response.data.balance)
-            console.log('balance ' + balance)
+        web3.eth.getBalance(address,(err,result) => {
+            if(err){
+                console.log('err: ' + err)
+            }else{
+                const eth = web3.utils.fromWei(result, "ether")
+                setBalance(eth)
+            }
         })
     }
 
     const fetchHistory = () => {
         axios.get(`${URL}/history/${address}`)
         .then(response => {
+            console.log('history')
+            console.log(response.data)
             setHistory(response.data)
         })
     }
 
-    useEffect(() =>{
+    const fetchSearchHistory = (a) => {
+        if(a == ''){
+            alert('input search address')
+            return
+        }
+        console.log(`${URL}/history/${a}`)
+        axios.get(`${URL}/history/${a}`)
+        .then(response => {
+            setSearchHistory(response.data)
+            setIsSearch(true)
+            console.log(searchHistory)
+        })
+    }
+
+    const fetchContractBalance = () =>{
+        web3.eth.getBalance(CONTRACTADDRESS).then(res => {
+            setContractBalance(web3.utils.fromWei(res,'ether'))
+        })
+    }
+
+    const fetchProgress = () => {
+        console.log('123')
+        contract.methods.getProgress().call(function(err,res){
+            if(err) console.log(err)
+            console.log(res)
+            setProgress(res)
+        })
+    }
+
+    useEffect(async() =>{
         if(!address){
             browserHistory.push({pathname:'/'})
             return
         }
-        console.log('private key '+ privateKey)
+        web3.eth.getAccounts().then(result => {
+            let accounts = result
+            if(accounts[0] === address)
+                setIsinVestor(true)
+        })
+        if(address === '0x6AAc7F545312d4202d72DAeA39daCF3f05aC3223') setIsStartUp(true)
         fetchBlocks()
         fetchBalance()
         fetchHistory()
         fetchTransactionPool()
+        fetchContractBalance()
+        fetchProgress()
+        web3.eth.defaultAccount = address
+        console.log(contract)        
     },[])
 
 
@@ -170,55 +289,80 @@ const Dashboard = (props) => {
                             </div>
                         </div>
                         <div className='col-sm-6'>
-                    <div className="card">
-                        <span className="text-center">
-                            <h2>Reciept</h2>
-                        </span>
-                        <div className="card-body">
-                            <p>Select user</p>
-                            <input style={{width:'100%' ,textAlign:'right'}} value={reciever} onChange={(e) => setReciever(e.target.value)}></input>
-                            <p>Amount</p>
-                            <input style={{width:'100%' ,textAlign:'right'}} value={amount} onChange={(e) => setAmount(e.target.value)}></input>
-                            <p>Reward</p>
-                            <input style={{width:'100%' ,textAlign:'right'}} value={reward} onChange={(e) => setReward(e.target.value)}></input><br/>
-                            <button className='btn btn-primary' style={{marginTop:'5px',float:'right'}} onClick={sendTransaction} >{send}</button>
-                        </div>
-                    </div>
-                </div>
-                    </div>
-                    <div className='row' style={{marginTop:'10px'}}>
-                        <div className='col-sm-12'>
                             <div className="card">
                                 <span className="text-center">
-                                    <h2>BlockChain</h2>
+                                    <h2>Reciept</h2>
                                 </span>
                                 <div className="card-body">
-                                    {                                     
-                                        blockchain.map(block => (
-                                            <div className='border' style={{padding:'5px',textAlign:'center',marginBottom:'10px'}}>
-                                                <h3>Block number: {block?.index}</h3>
-                                                <h4>Previous Hash </h4>
-                                                <p>{block?.previousHash}</p>
-                                                <h4>Data </h4>
-                                                {/* <p>From: 0x6AAc7F545312d4202d72DAeA39daCF3f05aC3223</p>
-                                                <p>To: 0x6AAc7F545312d4202d72DAeA39daCF3f05aC3223</p>
-                                                <p>Amount: 50, Fund: 5</p> */}
-                                                <p>Transactions: {block?.transactions.length}</p>
-                                                <h4>Time</h4>
-                                                <p>{block?.timestamp}</p>
-                                                <h4>Hash</h4>
-                                                <p>{block?.hash}</p>
-                                                <h4>Difficulty</h4>
-                                                <p>{block?.difficulty}</p>
-                                                <h4>Nonce</h4>
-                                                <p>{block?.nonce}</p>
-                                            </div>
-                                        ))    
-                                    }
+                                    <p>Select user</p>
+                                    <input style={{width:'100%' ,textAlign:'right'}} value={reciever} onChange={(e) => setReciever(e.target.value)}></input>
+                                    <p>Amount</p>
+                                    <input style={{width:'100%' ,textAlign:'right'}} value={amount} onChange={(e) => setAmount(e.target.value)}></input>
+                                    <p>Gas</p>
+                                    <input style={{width:'100%' ,textAlign:'right'}} value={reward} onChange={(e) => setReward(e.target.value)}></input><br/>
+                                    <button className='btn btn-primary' style={{marginTop:'5px',float:'right'}} onClick={sendTransaction} >{send}</button>
                                 </div>
                             </div>
                         </div>
-                    
+                    </div>
+                    <div className='row' style={{marginTop:'10px'}}>
+                        <div className='col-sm-6'>
+                            <div className="card">
+                                <span className="text-center">
+                                    <h2>History</h2>
+                                </span>
+                                <div className="card-body">
+                                    {/* History here */}
+                                    <p>Address :</p>
+                                    <div>
+                                        <input style={{width:'90%',textAlign:'right'}} value={searchAddress} onChange={(e)=> setSearchAddress(e.target.value)}></input>
+                                        <button type="submit" style={{width:'10%'}} onClick={()=>fetchSearchHistory(searchAddress)}><i className="fa fa-search"></i></button>
+                                    </div>
+                                    {
+                                        isSearch && searchHistory.length == 0 && <p style={{fontSize:'22px',fontWeight:'bold',textAlign:'center'}}>No history found</p>
+                                    }
+                                    {   searchHistory.length > 0 && 
+                                        <div style={{margin:'20px',fontSize:'20px'}}>
+                                            {searchHistory.map(item => (
+                                                item.addressFrom === address ? 
+                                                <p>Send {item.amount} coins to {item.addressTo} </p>:
+                                                <p>Recieve {item.amount} coins from {item.addressFrom}</p>
+                                            ))}
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                            
+                        </div>
+                        <div className='col-sm-6'>
+                            <div className="card">
+                                <span className="text-center">
+                                    <h2>Fund Contract</h2>
+                                    <p>{CONTRACTADDRESS}</p>
+                                </span>
+                                <div className="card-body" style={{fontSize:'20px'}}>
+                                    <p>Total Fund: {contractBalance} coins
+                                    </p>
+                                    <p>Progress: {progress}</p>
+                                    {isInvestor && 
+                                        <>
+                                            <input style={{width:'72%',textAlign:'right'}} value={investAmount} onChange = {(e)=> setInvestAmount(e.target.value)}></input>
+                                            <button className='btn btn-primary' style={{float:'right',width:'25%',marginLeft:'5px'}} onClick={()=>invest()}>Invest</button>
+                                            <p>Set Progress: </p>
+                                            <input style={{width:'72%',textAlign:'right'}} value={progress} onChange={(e)=>setProgress(e.target.value)}></input>
+                                            <button className='btn btn-primary' style={{float:'right',width:'25%',marginLeft:'5px'}} onClick={()=>update()}>Update</button>
+                                        </>
+                                    }
+                                    {
+                                        isStartUp && contractBalance > 0 && progress >= 50 &&
+                                        <>
+                                            <button className='btn btn-primary' onClick={()=>getMoney()}>Get Money</button>
+                                        </>
+                                    }
+                                </div>
+                            </div>
+                        </div>   
+                                                            
                     </div>
                 </div>
 
@@ -234,7 +378,7 @@ const Dashboard = (props) => {
                                     <p>From: {item.addressFrom}</p>
                                     <p>To: {item.addressTo}</p>
                                     <p>Amount: {item.amount}</p>
-                                    <p>Reward: {item.reward}</p>
+                                    <p>Gas used: {item.reward}</p>
                                 </div>
                                ))
                             }

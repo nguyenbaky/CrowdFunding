@@ -1,51 +1,16 @@
-const CryptoJS = require('crypto-js')
-class UnspentTxOut {
-    constructor(addressFrom, addressTo, amount) {
-        this.addressFrom = addressFrom;
-        this.addressTo = addressTo;
-        this.amount = amount;
-    }
-}
+const Web3 = require('web3')
+const web3 = new Web3("http://localhost:8545")
 
 class Transaction{
-    constructor(addressFrom, addressTo, amount,reward) {
+    constructor(addressFrom, addressTo, amount,signature) {
         this.addressFrom = addressFrom;
         this.addressTo = addressTo;
         this.amount = amount;
-        this.reward = reward
+        this.signature=signature
     }
 }
 
-const processTransactions = (aTransactions, aUnspentTxOuts, blockIndex) => {
-
-    if (!validateBlockTransactions(aTransactions, aUnspentTxOuts, blockIndex)) {
-        console.log('invalid block transactions');
-        return null;
-    }
-    return updateUnspentTxOuts(aTransactions, aUnspentTxOuts);
-};
-
-const validateBlockTransactions = (aTransactions, aUnspentTxOuts, blockIndex) => {
-    return true
-};
-
-const updateUnspentTxOuts = (aTransactions, aUnspentTxOuts) => {
-    // console.log(aTransactions)
-    const newUnspentTxOuts = aTransactions
-        .map((t) => {
-            return new UnspentTxOut(t.addressFrom, t.addressTo,t.amount );
-        })
-        .reduce((a, b) => a.concat(b), []);
-    
-    const consumedTxOuts = aTransactions
-        .map((t) => t.addressFrom)
-
-    const resultingUnspentTxOuts = aUnspentTxOuts
-        .filter(((uTxO) => consumedTxOuts.includes(uTxO.addressFrom) ))
-        .concat(newUnspentTxOuts);
-    return resultingUnspentTxOuts;
-};
 
 module.exports = {
-    processTransactions,Transaction,UnspentTxOut
+    Transaction
 }
