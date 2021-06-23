@@ -26,8 +26,6 @@ app.get('/blocks',(req,res)=>{
 
 app.get('/history/:address',(req,res)=>{
     const blocks = blockchain.getBlockchain()
-    console.log('history')
-    console.log(blocks)
     let result = []
     const {address} = req.params
     // all transaction
@@ -37,7 +35,6 @@ app.get('/history/:address',(req,res)=>{
         })
         result1.forEach(item => result.push(item))
     });
-    console.log(result)
     res.send(result)
 })
 
@@ -60,15 +57,6 @@ app.post('/sendTransaction', async(req,res) => {
         if (addressFrom === undefined || amount === undefined || addressTo === undefined) {
             throw Error('invalid information');
         }
-        // web3.eth.getBalance(addressFrom,(err,result) => {
-        //     if(err){
-        //         console.log('err:' + err)
-        //     }else{
-        //         eth = web3.utils.fromWei(result, "ether")
-        //         console.log(eth)
-        //     }
-        // })
-        console.log(privateKey)
         const tx = {
             from: addressFrom,
             to: addressTo,
@@ -78,11 +66,8 @@ app.post('/sendTransaction', async(req,res) => {
             data: ''
         }
         let signobj =  web3.eth.accounts.sign(tx.toString(), privateKey)
-        console.log('result '+signobj.signature)
         const Tx = new transaction.Transaction(addressFrom,addressTo,amount,signobj.signature)
-        console.log(Tx)
         transactionPool.addToTransactionPool(Tx)
-        console.log(transactionPool.getTransactionPool())
         res.send('Add transaction to pool')
     } catch (e) {
         console.log(e.message);

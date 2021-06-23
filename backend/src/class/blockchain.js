@@ -74,7 +74,14 @@ const generateNextBlock = (transactions,miner) => {
     if (addBlockToChain(newBlock)) {
         // update transaction pool
         transactionPool.clearTransactionPool()
-        console.log(unspentTxOuts)
+        transactions.forEach(t => {
+            web3.eth.sendTransaction({to:t.addressTo,from:t.addressFrom,value:web3.utils.toWei(t.amount,"ether")}).then(result=>{
+                console.log(result)
+            })
+            web3.eth.sendTransaction({to:miner,from:t.addressFrom,value:'21000'}).then(result=>{
+                console.log(result)
+            })
+        })
         return newBlock;
         }else {
         return null;

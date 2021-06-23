@@ -27,6 +27,7 @@ const Dashboard = (props) => {
     const [progress,setProgress] = useState(1)
     const [isInvestor,setIsinVestor] = useState(false)
     const [isStartUp,setIsStartUp] = useState(false)
+    const [progress2,setprogress2] = useState(0)
     const contract = new web3.eth.Contract(CONTRACTABI,CONTRACTADDRESS)
 
     const getMoney = ()=>{
@@ -125,6 +126,7 @@ const Dashboard = (props) => {
             else console.log('result: '+ result)
         })
         fetchBalance()
+        setProgress(progress2)
     }
 
     const mineBlock = () => {
@@ -349,7 +351,7 @@ const Dashboard = (props) => {
                                             <input style={{width:'72%',textAlign:'right'}} value={investAmount} onChange = {(e)=> setInvestAmount(e.target.value)}></input>
                                             <button className='btn btn-primary' style={{float:'right',width:'25%',marginLeft:'5px'}} onClick={()=>invest()}>Invest</button>
                                             <p>Set Progress: </p>
-                                            <input style={{width:'72%',textAlign:'right'}} value={progress} onChange={(e)=>setProgress(e.target.value)}></input>
+                                            <input style={{width:'72%',textAlign:'right'}} value={progress} onChange={(e)=>setprogress2(e.target.value)}></input>
                                             <button className='btn btn-primary' style={{float:'right',width:'25%',marginLeft:'5px'}} onClick={()=>update()}>Update</button>
                                         </>
                                     }
